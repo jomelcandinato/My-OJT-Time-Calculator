@@ -8,6 +8,7 @@
     />
     <title>Internship DTR Calculator</title>
     <style>
+      /* (all existing styles remain untouched) */
       * {
         margin: 0;
         padding: 0;
@@ -82,7 +83,6 @@
         font-weight: 350;
       }
 
-      /* entry form */
       .input-panel {
         display: flex;
         flex-wrap: wrap;
@@ -192,7 +192,6 @@
         filter: grayscale(0.3);
       }
 
-      /* loading overlay / spinner */
       .loader-container {
         display: flex;
         justify-content: center;
@@ -220,7 +219,6 @@
         }
       }
 
-      /* table container */
       .table-wrapper {
         border-radius: 1.8rem;
         background: rgba(0, 8, 20, 0.4);
@@ -234,7 +232,7 @@
       table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 700px; /* reduced from 900 for better mobile scaling */
+        min-width: 700px;
         color: #e6edff;
       }
 
@@ -367,7 +365,24 @@
         align-items: center;
       }
 
-      /* mobile responsiveness */
+      /* new footer credit style */
+      .footer-credit {
+        margin-top: 2rem;
+        text-align: center;
+        color: #5b7bb3;
+        font-size: 0.8rem;
+        border-top: 1px dashed #2f4572;
+        padding-top: 1.2rem;
+        letter-spacing: 0.3px;
+      }
+
+      .footer-credit span {
+        background: #1c2a44;
+        padding: 0.2rem 1rem;
+        border-radius: 2rem;
+        display: inline-block;
+      }
+
       @media screen and (max-width: 600px) {
         .tracker-card {
           padding: 1.5rem 1rem;
@@ -425,9 +440,13 @@
           font-size: 0.75rem;
           padding: 0.3rem 1rem;
         }
+
+        .footer-credit {
+          margin-top: 1.5rem;
+          font-size: 0.7rem;
+        }
       }
 
-      /* extra small screens */
       @media screen and (max-width: 380px) {
         table {
           min-width: 600px;
@@ -439,8 +458,8 @@
     <div class="tracker-card">
       <h1><span>⏱︎ </span> Internship Daily Time Record Calculator</h1>
       <div class="sub">
-        exact shift 8:30 – 17:30 | excess in (early + / late –) · excess out
-        (late + / early –)
+        Exact Shift: <strong>8:30 – 17:30</strong> <br />Unpaid Break:
+        <strong>12:00 – 13:00</strong>
       </div>
 
       <!-- input form -->
@@ -505,6 +524,11 @@
         </div>
         <button class="btn clear-all" id="clearAllBtn">🗑️ Clear all</button>
       </div>
+
+      <!-- new credit footer (added without altering existing code) -->
+      <div class="footer-credit">
+        <span>Created by Jomel Candinato</span>
+      </div>
     </div>
 
     <script>
@@ -512,6 +536,10 @@
         // fixed office times in minutes
         const OFFICE_IN_MIN = 8 * 60 + 30; // 08:30
         const OFFICE_OUT_MIN = 17 * 60 + 30; // 17:30
+
+        // unpaid break 12:00 – 13:00
+        const BREAK_START = 12 * 60; // 12:00
+        const BREAK_END = 13 * 60; // 13:00
 
         // state
         let entries = [];
@@ -550,6 +578,32 @@
           return `${sign}${hrs}h ${mins}m`;
         }
 
+        // compute break deduction (overlap with 12:00–13:00)
+        function getBreakDeduction(loginStr, logoutStr) {
+          const inMin = parseTimeToMinutes(loginStr);
+          const outMin = parseTimeToMinutes(logoutStr);
+          if (isNaN(inMin) || isNaN(outMin)) return NaN;
+
+          // no overlap if interval ends before break starts or starts after break ends
+          if (outMin <= BREAK_START || inMin >= BREAK_END) return 0;
+
+          const overlapStart = Math.max(inMin, BREAK_START);
+          const overlapEnd = Math.min(outMin, BREAK_END);
+          return Math.max(0, overlapEnd - overlapStart);
+        }
+
+        // compute total render (logout - login) minus unpaid break
+        function computeTotalMinutes(loginStr, logoutStr) {
+          const inMin = parseTimeToMinutes(loginStr);
+          const outMin = parseTimeToMinutes(logoutStr);
+          if (isNaN(inMin) || isNaN(outMin)) return NaN;
+
+          const rawTotal = outMin - inMin;
+          const breakDeduction = getBreakDeduction(loginStr, logoutStr);
+          // net total should never be negative, but just in case keep as is
+          return rawTotal - breakDeduction;
+        }
+
         // compute excess IN (office_in - actual)
         function computeExcessIn(loginTimeStr) {
           const loginMin = parseTimeToMinutes(loginTimeStr);
@@ -562,14 +616,6 @@
           const logoutMin = parseTimeToMinutes(logoutTimeStr);
           if (isNaN(logoutMin)) return NaN;
           return logoutMin - OFFICE_OUT_MIN;
-        }
-
-        // compute total render (logout - login) in minutes
-        function computeTotalMinutes(loginStr, logoutStr) {
-          const inMin = parseTimeToMinutes(loginStr);
-          const outMin = parseTimeToMinutes(logoutStr);
-          if (isNaN(inMin) || isNaN(outMin)) return NaN;
-          return outMin - inMin;
         }
 
         // validate logout after login
@@ -679,9 +725,7 @@
             entries.push({ date, login, logout });
             renderTable();
             hideLoader();
-
-            // optional: slight haptic (just visual)
-          }, 350); // smooth delay to see animation
+          }, 350);
         }
 
         // delete single entry
@@ -694,7 +738,7 @@
 
         // clear all entries
         function clearAll() {
-          if (entries.length > 0 && confirm("delete all time records?")) {
+          if (entries.length > 0 && confirm("Delete all time records?")) {
             entries = [];
             renderTable();
           }
@@ -716,7 +760,6 @@
               const parsed = JSON.parse(saved);
               if (Array.isArray(parsed)) entries = parsed;
             } else {
-              // No saved data → entries remains empty array
               entries = [];
             }
           } catch (e) {
@@ -736,7 +779,7 @@
 
         clearAllBtn.addEventListener("click", clearAll);
 
-        // initialize: load from localStorage and render (no example entries)
+        // initialize
         loadFromLocalStorage();
       })();
     </script>
